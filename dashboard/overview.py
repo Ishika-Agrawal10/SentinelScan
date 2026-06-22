@@ -265,9 +265,9 @@ def render_kpi_cards(dataframe: pd.DataFrame) -> None:
     col1, col2, col3, col4 = st.columns(4)
 
     total_ips = len(dataframe)
-    suspicious_ips = len(dataframe[dataframe["detection_status"] == "SUSPICIOUS"])
-    critical_threats = len(dataframe[dataframe["severity"] == "CRITICAL"])
-    avg_risk = dataframe["risk_score"].mean()
+    suspicious_ips = len(dataframe[dataframe["detection_status"] == "SUSPICIOUS"]) if "detection_status" in dataframe.columns else 0
+    critical_threats = len(dataframe[dataframe["severity"] == "CRITICAL"]) if "severity" in dataframe.columns else 0
+    avg_risk = dataframe["risk_score"].mean() if "risk_score" in dataframe.columns and not dataframe["risk_score"].dropna().empty else 0.0
 
     with col1:
         st.markdown(
@@ -317,75 +317,88 @@ def render_kpi_cards(dataframe: pd.DataFrame) -> None:
 def render_visualizations(dataframe: pd.DataFrame) -> None:
     """Render threat analysis visualizations."""
 
+    if dataframe.empty:
+        st.warning("No data available for visualizations.")
+        return
+
     st.markdown("<h2 class='section-header'>📊 Threat Analysis Visualizations</h2>", unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
 
     with col1:
         st.markdown("#### Severity Distribution")
-        severity_counts = dataframe["severity"].value_counts()
-        fig_severity = px.pie(
-            values=severity_counts.values,
-            names=severity_counts.index,
-            color_discrete_map={
-                "LOW": "#06d6a0",
-                "MEDIUM": "#ffd60a",
-                "HIGH": "#ff6b35",
-                "CRITICAL": "#ff0055",
-            },
-            title="Threats by Severity Level",
-        )
-        fig_severity.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="#1a1f3a",
-            plot_bgcolor="#1a1f3a",
-            font=dict(color="#e0e0e0"),
-            height=400,
-        )
-        st.plotly_chart(fig_severity, use_container_width=True)
+        if "severity" not in dataframe.columns or dataframe["severity"].dropna().empty:
+            st.info("Severity distribution is not available.")
+        else:
+            severity_counts = dataframe["severity"].value_counts()
+            fig_severity = px.pie(
+                values=severity_counts.values,
+                names=severity_counts.index,
+                color_discrete_map={
+                    "LOW": "#06d6a0",
+                    "MEDIUM": "#ffd60a",
+                    "HIGH": "#ff6b35",
+                    "CRITICAL": "#ff0055",
+                },
+                title="Threats by Severity Level",
+            )
+            fig_severity.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="#1f172a",
+                plot_bgcolor="#1f172a",
+                font=dict(color="#e0e0e0"),
+                height=400,
+            )
+            st.plotly_chart(fig_severity, use_container_width=True)
 
     with col2:
         st.markdown("#### Detection Status")
-        status_counts = dataframe["detection_status"].value_counts()
-        fig_status = px.bar(
-            x=status_counts.index,
-            y=status_counts.values,
-            color=status_counts.index,
-            color_discrete_map={
-                "NORMAL": "#06d6a0",
-                "MONITOR": "#ff9500",
-                "SUSPICIOUS": "#ff006e",
-            },
-            title="Threats by Detection Status",
-            labels={"x": "Detection Status", "y": "Count"},
-        )
-        fig_status.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="#1a1f3a",
-            plot_bgcolor="#1a1f3a",
-            font=dict(color="#e0e0e0"),
-            height=400,
-            showlegend=False,
-        )
-        st.plotly_chart(fig_status, use_container_width=True)
+        if "detection_status" not in dataframe.columns or dataframe["detection_status"].dropna().empty:
+            st.info("Detection status distribution is not available.")
+        else:
+            status_counts = dataframe["detection_status"].value_counts()
+            fig_status = px.bar(
+                x=status_counts.index,
+                y=status_counts.values,
+                color=status_counts.index,
+                color_discrete_map={
+                    "NORMAL": "#06d6a0",
+                    "MONITOR": "#ff9500",
+                    "SUSPICIOUS": "#ff006e",
+                },
+                title="Threats by Detection Status",
+                labels={"x": "Detection Status", "y": "Count"},
+            )
+            fig_status.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="#1f172a",
+                plot_bgcolor="#1f172a",
+                font=dict(color="#e0e0e0"),
+                height=400,
+                showlegend=False,
+            )
+            st.plotly_chart(fig_status, use_container_width=True)
 
     st.markdown("#### Risk Score Distribution")
-    fig_histogram = px.histogram(
-        dataframe,
-        x="risk_score",
-        nbins=30,
-        title="Risk Score Distribution Across All Sources",
-        labels={"risk_score": "Risk Score", "count": "Number of Sources"},
-        color_discrete_sequence=["#00d9ff"],
-    )
-    fig_histogram.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="#1a1f3a",
-        plot_bgcolor="#1a1f3a",
-        font=dict(color="#e0e0e0"),
-        height=400,
-    )
-    st.plotly_chart(fig_histogram, use_container_width=True)
+    if "risk_score" not in dataframe.columns or dataframe["risk_score"].dropna().empty:
+        st.info("Risk score distribution is not available.")
+    else:
+        fig_histogram = px.histogram(
+            dataframe,
+            x="risk_score",
+            nbins=30,
+            title="Risk Score Distribution Across All Sources",
+            labels={"risk_score": "Risk Score", "count": "Number of Sources"},
+            color_discrete_sequence=["#00d9ff"],
+        )
+        fig_histogram.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="#1f172a",
+            plot_bgcolor="#1f172a",
+            font=dict(color="#e0e0e0"),
+            height=400,
+        )
+        st.plotly_chart(fig_histogram, use_container_width=True)
 
 
 def render_data_tables(dataframe: pd.DataFrame) -> None:
@@ -396,16 +409,17 @@ def render_data_tables(dataframe: pd.DataFrame) -> None:
     tab1, tab2 = st.tabs(["🔴 Top 10 High-Risk IPs", "📊 Complete Analysis"])
 
     with tab1:
-        top_10 = dataframe.nlargest(10, "risk_score")[
-            ["srcip", "total_connections", "unique_destinations", "unique_ports", "risk_score", "severity"]
-        ].reset_index(drop=True)
-
-        top_10.index = top_10.index + 1
-        st.dataframe(
-            top_10,
-            use_container_width=True,
-            height=400,
-        )
+        if "risk_score" not in dataframe.columns:
+            st.info("Top risk IPs cannot be computed without risk_score.")
+        else:
+            available_top_columns = [col for col in ["srcip", "total_connections", "unique_destinations", "unique_ports", "risk_score", "severity"] if col in dataframe.columns]
+            top_10 = dataframe.nlargest(10, "risk_score")[available_top_columns].reset_index(drop=True)
+            top_10.index = top_10.index + 1
+            st.dataframe(
+                top_10,
+                use_container_width=True,
+                height=400,
+            )
 
     with tab2:
         display_columns = [
@@ -418,11 +432,14 @@ def render_data_tables(dataframe: pd.DataFrame) -> None:
             "severity",
         ]
         available_columns = [col for col in display_columns if col in dataframe.columns]
-        st.dataframe(
-            dataframe[available_columns].reset_index(drop=True),
-            use_container_width=True,
-            height=500,
-        )
+        if available_columns:
+            st.dataframe(
+                dataframe[available_columns].reset_index(drop=True),
+                use_container_width=True,
+                height=500,
+            )
+        else:
+            st.warning("No displayable columns are available for the current dataset.")
 
 
 def render_download_section(dataframe: pd.DataFrame) -> None:

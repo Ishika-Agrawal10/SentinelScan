@@ -442,18 +442,22 @@ def render_threat_intelligence(df: pd.DataFrame) -> None:
         </div>
         """, unsafe_allow_html=True)
 
-    if not attack_trend.empty:
+    if not attack_trend.empty and attack_trend.shape[1] >= 2:
+        x_column = attack_trend.columns[0]
+        y_column = attack_trend.columns[1]
         fig = px.bar(
             attack_trend,
-            x="index",
-            y="attack_type",
-            labels={"index": "Attack Type", "attack_type": "Count"},
+            x=x_column,
+            y=y_column,
+            labels={x_column: "Attack Type", y_column: "Count"},
             title="Attack Type Trend",
-            color="attack_type",
+            color=x_column,
             color_discrete_sequence=px.colors.qualitative.Alphabet,
         )
         fig.update_layout(template="plotly_dark", height=380, showlegend=False, plot_bgcolor="#121826", paper_bgcolor="#121826")
         st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Attack type trend data is not available.")
 
 
 def render_security_gauge(df: pd.DataFrame) -> None:
