@@ -1,7 +1,6 @@
-"""Feature extraction utilities for SentinelScan network traffic analysis.
+"""Feature extraction for SentinelScan.
 
-This module converts packet-level traffic records into per-source summary
-features used by downstream threat detection, risk scoring, and classification.
+Aggregates per-packet traffic data into per-source IP summary statistics.
 """
 
 from __future__ import annotations
@@ -16,61 +15,58 @@ logger = logging.getLogger(__name__)
 
 
 class FeatureExtractor:
-	"""Aggregate network traffic rows into source-level features."""
+    """Extract source-level features from packet-level traffic data."""
 
-	required_columns: Final[tuple[str, ...]] = (
-		"srcip",
-		"dstip",
-		"sport",
-		"dsport",
-		"proto",
-	)
+    required_columns: Final[tuple[str, ...]] = (
+        "srcip",
+        "dstip",
+        "sport",
+        "dsport",
+        "proto",
+    )
 
-	def extract_features(self, dataframe: pd.DataFrame) -> pd.DataFrame:
-		"""Transform raw traffic rows into aggregated source features.
+    def extract_features(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        """Aggregate traffic into per-source features.
 
-		Args:
-			dataframe: Parsed network traffic records.
+        Args:
+            dataframe: Raw network traffic records.
 
-		Returns:
-			A DataFrame with one row per source IP containing the fields required
-			by the downstream detection pipeline.
+        Returns:
+            Aggregated features per source IP.
 
-		Raises:
-			ValueError: If any required input columns are missing.
-		"""
+        Raises:
+            ValueError: If required columns missing.
+        """
+        logger.info("Extracting features from %d records", len(dataframe))
 
-		logger.info("Extracting features from %d raw records", len(dataframe))
+        missing = [col for col in self.required_columns if col not in dataframe.columns]
+        if missing:
+            raise ValueError(f"Missing columns: {', '.join(missing)}")
 
-		missing_columns = [
-			column for column in self.required_columns if column not in dataframe.columns
-		]
+        df = dataframe.copy()
+        df["srcip"] = df["srcip"].astype(str)
+        df["dstip"] = df["dstip"].astype(str)
+        df["dsport"] = pd.to_numeric(df["dsport"], errors="coerce").fillna(0)
 
-		if missing_columns:
-			message = "Missing required columns for feature extraction: " + ", ".join(
-				missing_columns
-			)
-			logger.error(message)
-			raise ValueError(message)
+        features = (
+            df.groupby("srcip", dropna=False)
+            .agg(
+                total_connections=("dstip", "size"),
+                unique_destinations=("dstip", "nunique"),
+                unique_ports=("dsport", "nunique"),
+                most_common_dstport=("dsport", lambda values: int(values.mode().iloc[0]) if not values.mode().empty else 0),
+                unique_protocols=("proto", "nunique"),
+                common_protocol=("proto", lambda values: str(values.mode().iloc[0]) if not values.mode().empty else "UNKNOWN"),
+            )
+            .reset_index()
+        )
 
-		normalized = dataframe.copy()
-		normalized["srcip"] = normalized["srcip"].astype(str)
-		normalized["dstip"] = normalized["dstip"].astype(str)
-		normalized["dsport"] = pd.to_numeric(normalized["dsport"], errors="coerce")
+        features["unique_ports"] = features["unique_ports"].fillna(0).astype(int)
+        features["unique_destinations"] = features["unique_destinations"].fillna(0).astype(int)
+        features["total_connections"] = features["total_connections"].fillna(0).astype(int)
+        features["most_common_dstport"] = features["most_common_dstport"].fillna(0).astype(int)
+        features["unique_protocols"] = features["unique_protocols"].fillna(0).astype(int)
+        features["common_protocol"] = features["common_protocol"].fillna("UNKNOWN").astype(str)
 
-		features = (
-			normalized.groupby("srcip", dropna=False)
-			.agg(
-				total_connections=("dstip", "size"),
-				unique_destinations=("dstip", "nunique"),
-				unique_ports=("dsport", "nunique"),
-			)
-			.reset_index()
-		)
-
-		features["unique_ports"] = features["unique_ports"].fillna(0).astype(int)
-		features["unique_destinations"] = features["unique_destinations"].fillna(0).astype(int)
-		features["total_connections"] = features["total_connections"].fillna(0).astype(int)
-
-		logger.info("Feature extraction produced %d aggregated rows", len(features))
-		return features
+        logger.info("Produced %d aggregated features", len(features))
+        return features

@@ -1,7 +1,18 @@
-streamlit
-pandas
-numpy
-plotly
-matplotlib
-scikit-learn
-openpyxl
+# SentinelScan Requirements
+# Cybersecurity threat detection and analysis system
+
+# Core data processing
+pandas>=1.5.0
+numpy>=1.23.0
+
+# Visualization and reporting
+streamlit>=1.20.0
+plotly>=5.10.0
+matplotlib>=3.6.0
+
+# Machine learning
+scikit-learn>=1.2.0
+
+# Data export
+openpyxl>=3.10.0
+

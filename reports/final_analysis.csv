@@ -1,0 +1,13 @@
+srcip,total_connections,unique_destinations,unique_ports,most_common_dstport,unique_protocols,common_protocol,detection_status,detection_reason,risk_score,severity,ml_prediction,ml_result,anomaly_score,confidence_percentage,final_threat_assessment,attack_type,most_active_source_ip,highest_risk_host,most_targeted_port,most_used_protocol,network_threat_level,threat_density,intelligence_findings
+10.0.2.100,5,3,3,80,1,TCP,NORMAL,Normal traffic pattern,22.46,LOW,NORMAL,NORMAL,0.0,100.0,NORMAL TRAFFIC,Normal Traffic,192.168.1.10,192.168.1.10,22,TCP,Normal,0.0,"Source IP 192.168.1.10 is the most active host and should be prioritized for investigation.
+1 critical threats were identified, requiring immediate SOC attention.
+Review firewall policies, IDS tuning, and host-level controls for the highest risk sources."
+172.16.0.50,16,16,1,22,1,TCP,MONITOR,Elevated destination or port diversity detected,25.09,MEDIUM,NORMAL,NORMAL,0.0,100.0,NORMAL TRAFFIC,Horizontal Scan,192.168.1.10,192.168.1.10,22,TCP,Normal,0.0,"Source IP 192.168.1.10 is the most active host and should be prioritized for investigation.
+1 critical threats were identified, requiring immediate SOC attention.
+Review firewall policies, IDS tuning, and host-level controls for the highest risk sources."
+192.168.1.10,35,35,5,22,1,TCP,MONITOR,Elevated destination or port diversity detected,100.0,CRITICAL,NORMAL,NORMAL,0.0,100.0,NORMAL TRAFFIC,Horizontal Scan,192.168.1.10,192.168.1.10,22,TCP,Normal,0.0,"Source IP 192.168.1.10 is the most active host and should be prioritized for investigation.
+1 critical threats were identified, requiring immediate SOC attention.
+Review firewall policies, IDS tuning, and host-level controls for the highest risk sources."
+192.168.2.5,3,2,3,22,1,TCP,NORMAL,Normal traffic pattern,20.0,LOW,NORMAL,NORMAL,0.0,100.0,NORMAL TRAFFIC,Normal Traffic,192.168.1.10,192.168.1.10,22,TCP,Normal,0.0,"Source IP 192.168.1.10 is the most active host and should be prioritized for investigation.
+1 critical threats were identified, requiring immediate SOC attention.
+Review firewall policies, IDS tuning, and host-level controls for the highest risk sources."

@@ -1,13 +1,12 @@
-"""Threat detection engine for SentinelScan network traffic analysis.
+"""Threat detection engine for SentinelScan.
 
-This module converts feature-engineered traffic summaries into high-level
-security classifications for suspicious port scanning behavior.
+Detects suspicious port-scanning behavior based on traffic feature analysis.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Tuple
+from typing import Final, Tuple
 
 import pandas as pd
 
@@ -16,95 +15,63 @@ logger = logging.getLogger(__name__)
 
 
 class ThreatDetector:
-	"""Detect suspicious port-scanning activity in feature-engineered traffic data."""
+    """Classify traffic as suspicious, monitor, or normal."""
 
-	required_columns = [
-		"srcip",
-		"total_connections",
-		"unique_destinations",
-		"unique_ports",
-	]
+    required_columns: Final[tuple[str, ...]] = (
+        "srcip",
+        "total_connections",
+        "unique_destinations",
+        "unique_ports",
+    )
 
-	status_column = "detection_status"
-	reason_column = "detection_reason"
+    status_column: Final[str] = "detection_status"
+    reason_column: Final[str] = "detection_reason"
 
-	def detect_suspicious_activity(self, dataframe: pd.DataFrame) -> pd.DataFrame:
-		"""Annotate feature rows with threat detection outcomes.
+    def detect_suspicious_activity(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        """Classify threat status for each source IP.
 
-		Args:
-			dataframe: Feature-engineered network traffic data.
+        Args:
+            dataframe: Aggregated traffic features.
 
-		Returns:
-			A copy of the input DataFrame with detection status and reason columns
-			appended.
-		"""
+        Returns:
+            DataFrame with detection_status and detection_reason columns.
+        """
+        logger.info("Detecting threats for %d records", len(dataframe))
 
-		logger.info("Starting threat detection for %d records", len(dataframe))
+        result = dataframe.copy()
+        statuses = []
+        reasons = []
 
-		result = dataframe.copy()
+        for _, row in result.iterrows():
+            status, reason = self._classify_row(row)
+            statuses.append(status)
+            reasons.append(reason)
 
-		missing_columns = [
-			column for column in self.required_columns if column not in result.columns
-		]
+        result[self.status_column] = statuses
+        result[self.reason_column] = reasons
 
-		if missing_columns:
-			logger.warning(
-				"Missing required feature columns: %s",
-				", ".join(missing_columns),
-			)
-			result[self.status_column] = "NORMAL"
-			result[self.reason_column] = (
-				"Missing required feature columns; unable to reliably evaluate "
-				"suspicious scanning indicators."
-			)
-			return result
+        logger.info("Threat detection complete")
+        return result
 
-		statuses = []
-		reasons = []
+    def _classify_row(self, row: pd.Series) -> Tuple[str, str]:
+        """Classify a single source IP."""
+        dest = self._safe_int(row.get("unique_destinations", 0))
+        ports = self._safe_int(row.get("unique_ports", 0))
 
-		for _, row in result.iterrows():
-			status, reason = self._classify_row(row)
-			statuses.append(status)
-			reasons.append(reason)
+        if dest > 30 and ports > 20:
+            return "SUSPICIOUS", "High destination and port diversity detected (port scanning behavior)"
 
-		result[self.status_column] = statuses
-		result[self.reason_column] = reasons
+        if dest > 15 or ports > 10:
+            return "MONITOR", "Elevated destination or port diversity detected"
 
-		logger.info("Threat detection completed for %d records", len(result))
-		return result
+        return "NORMAL", "Normal traffic pattern"
 
-	def _classify_row(self, row: pd.Series) -> Tuple[str, str]:
-		"""Classify a single aggregated traffic row."""
-
-		unique_destinations = self._safe_int(row.get("unique_destinations", 0))
-		unique_ports = self._safe_int(row.get("unique_ports", 0))
-
-		if unique_destinations > 30 and unique_ports > 20:
-			return (
-				"SUSPICIOUS",
-				"High destination diversity and high port diversity consistent with port scanning behavior.",
-			)
-
-		if unique_destinations > 15 or unique_ports > 10:
-			return (
-				"MONITOR",
-				"Elevated network exploration activity detected.",
-			)
-
-		return (
-			"NORMAL",
-			"No suspicious scanning indicators observed.",
-		)
-
-	@staticmethod
-	def _safe_int(value: object) -> int:
-		"""Convert a value to an integer without raising on bad input."""
-
-		if pd.isna(value):
-			return 0
-
-		try:
-			return int(value)
-		except (TypeError, ValueError):
-			logger.debug("Non-numeric value encountered during threat detection: %r", value)
-			return 0
+    @staticmethod
+    def _safe_int(value: object) -> int:
+        """Safely convert value to int."""
+        if pd.isna(value):
+            return 0
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0

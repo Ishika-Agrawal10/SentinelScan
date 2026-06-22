@@ -1,0 +1,18 @@
+SentinelScan Executive Report
+Generated: 2026-06-22 14:13:51
+============================================================
+
+EXECUTIVE SUMMARY
+Total Source IPs: 4
+Most Active Source IP: 192.168.1.10
+Highest Risk Host: 192.168.1.10
+Most Targeted Port: 22
+Most Used Protocol: TCP
+Network Threat Level: Normal
+Threat Density: 0.0%
+
+SECURITY RECOMMENDATIONS
+- Block or isolate suspicious hosts
+- Review firewall policies and access controls
+- Monitor highest risk hosts closely
+- Tune IDS/IPS rules for reconnaissance behavior

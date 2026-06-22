@@ -1,15 +1,14 @@
-"""Utilities for loading and validating network traffic CSV files.
+"""Network traffic CSV parser for SentinelScan.
 
-This module provides a focused parser for SentinelScan's network traffic
-ingestion pipeline. It loads CSV data into a pandas DataFrame, validates the
-required schema, and raises explicit exceptions when input is invalid.
+This module provides robust CSV loading and validation for SentinelScan's
+network traffic ingestion pipeline.
 """
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List
+from typing import Final
 
 import pandas as pd
 from pandas.errors import EmptyDataError, ParserError
@@ -19,69 +18,63 @@ logger = logging.getLogger(__name__)
 
 
 class NetworkTrafficParser:
-	"""Parse and validate SentinelScan network traffic CSV files."""
+    """Load and validate network traffic CSV files."""
 
-	required_columns: List[str] = ["srcip", "dstip", "sport", "dsport", "proto"]
+    required_columns: Final[tuple[str, ...]] = (
+        "srcip",
+        "dstip",
+        "sport",
+        "dsport",
+        "proto",
+    )
 
-	def load_csv(self, file_path: str | Path) -> pd.DataFrame:
-		"""Load a CSV file and validate its required columns.
+    def load_csv(self, file_path: str | Path) -> pd.DataFrame:
+        """Load and validate a CSV file.
 
-		Args:
-			file_path: Path to the CSV file containing network traffic records.
+        Args:
+            file_path: Path to the CSV file.
 
-		Returns:
-			A pandas DataFrame containing the validated data.
+        Returns:
+            Validated DataFrame.
 
-		Raises:
-			FileNotFoundError: If the file does not exist.
-			EmptyDataError: If the CSV file is empty.
-			ParserError: If the CSV cannot be parsed.
-			ValueError: If required columns are missing.
-		"""
+        Raises:
+            FileNotFoundError: If file does not exist.
+            ValueError: If validation fails.
+        """
+        csv_path = Path(file_path)
+        logger.info("Loading CSV from: %s", csv_path)
 
-		csv_path = Path(file_path)
-		logger.info("Loading network traffic CSV from %s", csv_path)
+        if not csv_path.exists():
+            raise FileNotFoundError(f"File not found: {csv_path}")
 
-		if not csv_path.exists():
-			logger.error("CSV file not found: %s", csv_path)
-			raise FileNotFoundError(f"File not found: {csv_path}")
+        try:
+            dataframe = pd.read_csv(csv_path)
+            if dataframe.empty:
+                raise ValueError("CSV file is empty")
+        except EmptyDataError as exc:
+            raise ValueError("CSV file is empty") from exc
+        except ParserError as exc:
+            raise ValueError(f"Failed to parse CSV: {exc}") from exc
+        except Exception as exc:
+            raise ValueError(f"Error reading CSV: {exc}") from exc
 
-		try:
-			dataframe = pd.read_csv(csv_path)
-		except FileNotFoundError:
-			logger.exception("File disappeared while being read: %s", csv_path)
-			raise
-		except EmptyDataError:
-			logger.exception("CSV file is empty: %s", csv_path)
-			raise
-		except ParserError:
-			logger.exception("Failed to parse CSV file: %s", csv_path)
-			raise
+        return self.validate_columns(dataframe)
 
-		return self.validate_columns(dataframe)
+    def validate_columns(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        """Validate required columns exist.
 
-	def validate_columns(self, dataframe: pd.DataFrame) -> pd.DataFrame:
-		"""Validate that the DataFrame contains the required schema.
+        Args:
+            dataframe: DataFrame to validate.
 
-		Args:
-			dataframe: DataFrame loaded from a network traffic CSV file.
+        Returns:
+            The same DataFrame if valid.
 
-		Returns:
-			The same DataFrame if validation succeeds.
+        Raises:
+            ValueError: If required columns missing.
+        """
+        missing = [col for col in self.required_columns if col not in dataframe.columns]
+        if missing:
+            raise ValueError(f"Missing columns: {', '.join(missing)}")
 
-		Raises:
-			ValueError: If any required columns are missing.
-		"""
-
-		missing_columns = [
-			column for column in self.required_columns if column not in dataframe.columns
-		]
-
-		if missing_columns:
-			logger.error("Missing required columns: %s", ", ".join(missing_columns))
-			raise ValueError(
-				"Missing required columns: " + ", ".join(missing_columns)
-			)
-
-		logger.info("CSV validation successful; required columns are present")
-		return dataframe
+        logger.info("CSV validation successful for %d records", len(dataframe))
+        return dataframe
